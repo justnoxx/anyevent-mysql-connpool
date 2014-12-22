@@ -15,10 +15,10 @@ use warnings;
 use AnyEvent::MySQL;
 use AnyEvent::ConnPool;
 
-our $VERSION = 0.01;
+our $VERSION = 0.02;
 
 sub import {
-    *{AnyEvent::MySQL::pool_connect} = sub {
+    *{AnyEvent::MySQL::connect_pool} = sub {
         my ($dsn, $user, $password, $params, $cb) = @_;
         
         my $pool_size = delete $params->{PoolSize};
