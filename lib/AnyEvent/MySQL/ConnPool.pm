@@ -14,13 +14,17 @@ use warnings;
 
 use AnyEvent::MySQL;
 use AnyEvent::ConnPool;
+use Data::Dumper;
 
-our $VERSION = 0.02;
+our $VERSION = 0.03;
 
 sub import {
     *{AnyEvent::MySQL::connect_pool} = sub {
-        my ($dsn, $user, $password, $params, $cb) = @_;
-        
+        my ($caller, $dsn, $user, $password, $params, $cb) = @_;
+
+        my @conn_args = @_;
+        shift @conn_args;
+
         my $pool_size = delete $params->{PoolSize};
         my $check_interval = delete $params->{CheckInterval};
 
@@ -38,7 +42,7 @@ sub import {
                 interval    =>  $check_interval,
             },
             constructor     =>  sub {
-                return AnyEvent::MySQL->connect(@_);
+                return AnyEvent::MySQL->connect(@conn_args);
             },
         );
     };
