@@ -63,7 +63,7 @@ use warnings;
 use AnyEvent::MySQL;
 use AnyEvent::ConnPool;
 
-our $VERSION = 0.04;
+our $VERSION = 0.05;
 
 sub import {
     *{AnyEvent::MySQL::connect_pool} = sub {
@@ -98,3 +98,4 @@ sub import {
 1;
 
 __END__
+
