@@ -35,6 +35,13 @@ Similar to AnyEvent::MySQL->connect();
             }
         }
     );
+    
+    # if you need only connection methods, you can use dispatcher object as regular AnyEvent::MySQL connection  object.
+    # the difference is: dispatcher applies connection pool functional to your connection object.
+    my $dispatcher = $connpool->dispatcher();
+    $dispatcher->selectall_hashref('SELECT * FROM `table1`', {}, sub {
+        ...;
+    });
 
 =head1 METHODS
 
@@ -60,10 +67,11 @@ package AnyEvent::MySQL::ConnPool;
 use strict;
 use warnings;
 
+use Carp;
 use AnyEvent::MySQL;
 use AnyEvent::ConnPool;
 
-our $VERSION = 0.06;
+our $VERSION = 0.07;
 
 sub import {
     *{AnyEvent::MySQL::connect_pool} = sub {
@@ -93,6 +101,47 @@ sub import {
             },
         );
     };
+}
+
+
+sub new {
+    my ($class, %params) = @_;
+    
+    if (!$params{CheckInterval}) {
+        $params{CheckInterval} = 10;
+    }
+    if (!$params{PoolSize}) {
+        $params{PoolSize} = 5;
+    }
+    if (!$params{Dispatcher}) {
+        $params{Dispatcher} = 0;
+    }
+
+}
+
+
+sub _connpool {
+    my ($self, %params) = @_;
+
+    my ($pool_size, $check_interval, $dispatcher) = ($params{PoolSize}, $params{CheckInterval}, $params{Dispatcher});
+    $pool_size ||= 5;
+    $check_interval ||= 10;
+    $dispatcher = 0 unless $dispatcher;
+
+    my $connpool = AnyEvent::ConnPool->new(
+        init    =>  1,
+        size    =>  $pool_size,
+        check   =>  {
+            cb          =>  sub {
+                my $unit = shift;
+                $unit->conn()->ping();
+            },
+            interval    =>  $check_interval,
+        },
+        constructor     =>  sub {
+            return AnyEvent::MySQL->connect(...);
+        },
+    );
 }
 
 1;
