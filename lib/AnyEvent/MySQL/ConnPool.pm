@@ -53,13 +53,15 @@ Returns connected L<AnyEvent::ConnPool> object.
 All options for connect_pool are similar to the AnyEvent::MySQL->connect method.
 But pool accepts additional options in parameters hashref(4th parameter).
 
-    AnyEvent::MySQL->connect_pool($dsn, $user, $password, {PoolSize => 5, CheckInterval => 10}, $callback);
+    AnyEvent::MySQL->connect_pool($dsn, $user, $password, {PoolSize => 5, CheckInterval => 10, Dispatcher => 0}, $callback);
 
 PoolSize    =>  how many connections should be created. 5 connections by default.
 
 CheckInterval   =>  Interval for ping connections. 10 seconds by default.
 
-=back
+Dispatcher  =>  Determines return-value type. If true, connect_pool will return dispatcher object, instead of pool object. You can use dispatcher object
+as regular AnyEvent::MySQL connection object, pool will do it's own behind the scene.
+
 
 =cut
 
@@ -74,7 +76,18 @@ use AnyEvent::ConnPool;
 our $VERSION = 0.07;
 
 sub import {
-    *{AnyEvent::MySQL::connect_pool} = sub {
+    *{AnyEvent::MySQL::connect_pool} = \&new;
+}
+
+=item B<new>
+
+Same thing as connect_pool.
+    
+    my $connpool = AnyEvent::MySQL::ConnPool->new($dsn, $user, $password, {PoolSize => 5, CheckInterval => 10, Dispatcher => 0}, $callback);
+
+=cut
+
+sub new {
         my ($caller, $dsn, $user, $password, $params, $cb) = @_;
 
         my @conn_args = @_;
@@ -82,14 +95,17 @@ sub import {
 
         my $pool_size = delete $params->{PoolSize};
         my $check_interval = delete $params->{CheckInterval};
+        my $dispatcher = delete $params->{Dispatcher};
 
         $pool_size ||= 5;
         $check_interval ||= 10;
+        $dispatcher = 0 unless $dispatcher;
 
         my $connpool = AnyEvent::ConnPool->new(
-            init    =>  1,
-            size    =>  $pool_size,
-            check   =>  {
+            init        =>  1,
+            dispatcher  =>  $dispatcher,
+            size        =>  $pool_size,
+            check       =>  {
                 cb          =>  sub {
                     my $unit = shift;
                     $unit->conn()->ping();
@@ -101,50 +117,12 @@ sub import {
             },
         );
     };
-}
-
-
-sub new {
-    my ($class, %params) = @_;
-    
-    if (!$params{CheckInterval}) {
-        $params{CheckInterval} = 10;
-    }
-    if (!$params{PoolSize}) {
-        $params{PoolSize} = 5;
-    }
-    if (!$params{Dispatcher}) {
-        $params{Dispatcher} = 0;
-    }
-
-}
-
-
-sub _connpool {
-    my ($self, %params) = @_;
-
-    my ($pool_size, $check_interval, $dispatcher) = ($params{PoolSize}, $params{CheckInterval}, $params{Dispatcher});
-    $pool_size ||= 5;
-    $check_interval ||= 10;
-    $dispatcher = 0 unless $dispatcher;
-
-    my $connpool = AnyEvent::ConnPool->new(
-        init    =>  1,
-        size    =>  $pool_size,
-        check   =>  {
-            cb          =>  sub {
-                my $unit = shift;
-                $unit->conn()->ping();
-            },
-            interval    =>  $check_interval,
-        },
-        constructor     =>  sub {
-            return AnyEvent::MySQL->connect(...);
-        },
-    );
-}
 
 1;
+
+=back
+
+=cut
 
 __END__
 
